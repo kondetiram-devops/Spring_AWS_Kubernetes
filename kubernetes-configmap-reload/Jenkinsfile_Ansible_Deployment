@@ -22,7 +22,8 @@ pipeline {
             steps {
                 gitCheckout(
                     branch: "main",
-                    url: "https://github.com/praveen1994dec/spring-cloud-kubernetes.git"
+                    url: "https://github.com/Pavan-1997/Spring_AWS_Kubernetes.git"
+
                 )
             }
         }
@@ -54,6 +55,16 @@ pipeline {
 	            dockerCleanup ( "${params.ImageName}", "${params.docker_repo}" )
 			}
 		}
+		
+		stage("Ansible Setup"){
+		    when{
+		        expression { params.action == 'create'}
+		    }
+		    steps {
+		        sh 'ansible-playbook ${WORKSPACE}/kubernetes-configmap-reload/server_setup.yml'
+		    }
+		    }
+	
 	    stage("Create deployment") {
 			when {
 				expression { params.action == 'create' }
@@ -64,34 +75,33 @@ pipeline {
 	                        accessKeyVariable: 'AWS_ACCESS_KEY_ID', 
 	                        credentialsId: 'AWS_Credentials', 
 	                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-	                    withCredentials([kubeconfigContent(credentialsId: 'kubernetes_config', 
-	                        variable: 'KUBECONFIG')]) {
-	                        sh 'curl -LO "https://storage.googleapis.com/kubernetes-release/release/v1.20.5/bin/linux/amd64/kubectl"'  
-                            sh 'chmod u+x ./kubectl'  
-	                        sh 'kubectl create -f kubernetes-configmap.yml'
+	                   
+	                        sh 'sudo curl -LO "https://storage.googleapis.com/kubernetes-release/release/v1.20.5/bin/linux/amd64/kubectl"'  
+                            sh 'sudo chmod u+x ./kubectl'  
+	                        sh 'sudo kubectl create -f kubernetes-configmap.yml'
 	                    }
 	                }
-	            }
-	        }
-	    }
-		stage("rollback deployment") {
-			when {
-				expression { params.action == 'rollback' }
-			}
-	        steps {
-	           withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', 
-	                        accessKeyVariable: 'AWS_ACCESS_KEY_ID', 
-	                        credentialsId: 'AWS_Credentials', 
-	                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-	               withCredentials([kubeconfigContent(credentialsId: 'kubernetes_config', 
-	                        variable: 'KUBECONFIG')]) {
+	            }}
+	            
+	            stage("Wait for Pods") {
+	                steps{
+	                    sh 'sleep 5'
+	                }}
+	            
+	            
+	            stage("Rollback deployment") {
+			
+			        steps {
+	           
+	               
 	               sh """
-	                    kubectl delete deploy ${params.AppName}
-					    kubectl delete svc ${params.AppName}
+	                    sudo kubectl delete deploy ${params.AppName}${params.ImageTag}
+					    sudo kubectl delete svc ${params.AppName}${params.ImageTag}
 				   """
 	               }
 	            }
 	        }
 	    }
-    }
-}
+    
+	        
+
